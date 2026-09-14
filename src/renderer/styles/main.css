@@ -29,6 +29,57 @@
 }
 
 @layer components {
+  /* The formatting toolbar: floats over the document, out of the text. */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.4rem 1rem;
+    background: rgb(28 28 30 / 0.92);
+    border-bottom: 1px solid rgb(255 255 255 / 0.06);
+    backdrop-filter: blur(8px);
+  }
+
+  .toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 0.15rem;
+  }
+
+  .toolbar-separator {
+    width: 1px;
+    height: 1.1rem;
+    margin: 0 0.45rem;
+    background: rgb(255 255 255 / 0.12);
+  }
+
+  .toolbar-button {
+    display: grid;
+    place-items: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: #a8a8ad;
+    cursor: pointer;
+  }
+
+  .toolbar-button:hover {
+    background: rgb(255 255 255 / 0.08);
+    color: #e8e6e3;
+  }
+
+  .toolbar-button--active {
+    background: rgb(184 146 106 / 0.22);
+    color: #d8b48c;
+  }
+
+  .toolbar-button svg {
+    width: 1.05rem;
+    height: 1.05rem;
+  }
+
   .status-bar {
     position: fixed;
     bottom: 0;
@@ -74,5 +125,86 @@
 
   .writable-space:focus {
     outline: none;
+  }
+
+  /* Typography of the saved document. Same serif as the body, sized like
+     a manuscript: generous heading steps, comfortable list rhythm. */
+  .writable-space h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 1.6rem 0 0.8rem;
+    line-height: 1.2;
+  }
+
+  .writable-space h1:first-child,
+  .writable-space h2:first-child,
+  .writable-space h3:first-child,
+  .writable-space p:first-child {
+    margin-top: 0;
+  }
+
+  .writable-space h2 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin: 1.4rem 0 0.7rem;
+    line-height: 1.25;
+  }
+
+  .writable-space h3 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin: 1.2rem 0 0.6rem;
+    line-height: 1.3;
+  }
+
+  .writable-space p {
+    margin: 0 0 0.9rem;
+  }
+
+  .writable-space blockquote {
+    margin: 1rem 0;
+    padding: 0.2rem 0 0.2rem 1.1rem;
+    border-left: 3px solid rgb(184 146 106 / 0.55);
+    color: #b9b6b0;
+    font-style: italic;
+  }
+
+  .writable-space pre {
+    margin: 1rem 0;
+    padding: 0.9rem 1.1rem;
+    background: rgb(0 0 0 / 0.35);
+    border-radius: 8px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.95em;
+    white-space: pre-wrap;
+  }
+
+  .writable-space ul,
+  .writable-space ol {
+    margin: 0.6rem 0 1rem;
+    padding-left: 1.6rem;
+  }
+
+  .writable-space li {
+    margin: 0.3rem 0;
+  }
+
+  .writable-space a {
+    color: #d8b48c;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .writable-space mark {
+    background: rgb(216 180 140 / 0.4);
+    color: inherit;
+    border-radius: 3px;
+    padding: 0 0.15em;
+  }
+
+  .writable-space hr {
+    border: 0;
+    border-top: 1px solid rgb(255 255 255 / 0.14);
+    margin: 1.6rem 0;
   }
 }

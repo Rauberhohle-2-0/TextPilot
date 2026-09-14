@@ -1,15 +1,16 @@
 /**
- * The writable space: the whole window is one editor.
+ * The writable space: the whole window is one rich-text document.
  *
- * A contenteditable surface, not a textarea, so it can grow into rich
- * text later without changing the shell. State lives in `EditorStore`;
- * this file only renders it and forwards input. Saves are debounced -
+ * A contenteditable surface over `EditorStore`. The document is HTML -
+ * headings, emphasis, lists survive save and load - and the toolbar
+ * writes formats straight into it via `execCommand`. Saves are debounced:
  * one request per typing pause, not one per keystroke.
  */
 import { createElement, icons } from "lucide";
 import type { Component } from "../../core/component.ts";
 import { h } from "../../core/dom.ts";
 import { loadNote, saveNote } from "./api.ts";
+import { createToolbar } from "./toolbar.ts";
 import { EditorStore } from "./store.ts";
 
 const SAVE_DEBOUNCE_MS = 600;
@@ -28,7 +29,15 @@ export function createEditor({ onStatus = () => {} }: EditorOptions = {}): Compo
     contenteditable: true,
     spellcheck: false,
     "data-placeholder": "Start writing…",
-    "aria-label": "Writable space",
+    "aria-label": "Document",
+  });
+
+  const toolbar = createToolbar({
+    target: surface,
+    onChange: () => {
+      store.set({ html: surface.innerHTML });
+      scheduleSave();
+    },
   });
 
   const statusIcon = h("span", { class: "status-icon", "aria-hidden": "true" });
@@ -39,26 +48,27 @@ export function createEditor({ onStatus = () => {} }: EditorOptions = {}): Compo
     h("span", { class: "status-group" }, statusIcon, statusText),
   );
 
-  const root = h("div", { class: "editor h-full w-full" }, surface, statusBar);
+  const root = h(
+    "div",
+    { class: "editor flex flex-col h-full w-full" },
+    toolbar,
+    surface,
+    statusBar,
+  );
 
-  const unsubscribe = store.subscribe(({ text, saving, loaded }) => {
-    if (loaded && surface.textContent !== text) surface.textContent = text;
+  const unsubscribe = store.subscribe(({ html, saving, loaded }) => {
+    // Only overwrite the DOM when the change came from the network, not
+    // from typing - rewriting innerHTML mid-keystroke would drop the
+    // caret.
+    if (loaded && surface.innerHTML !== html) surface.innerHTML = html;
     renderStatus(statusIcon, statusText, saving, loaded);
   });
 
   surface.addEventListener("input", () => {
-    store.set({ text: surface.textContent ?? "" });
+    store.set({ html: surface.innerHTML });
     scheduleSave();
   });
 
-  // Block paste-in of formatted HTML: the writable space is plain text.
-  surface.addEventListener("paste", (event) => {
-    event.preventDefault();
-    const text = event.clipboardData?.getData("text/plain") ?? "";
-    document.execCommand("insertText", false, text);
-  });
-
-  // Debounced persistence.
   let timer: ReturnType<typeof setTimeout> | undefined;
   function scheduleSave(): void {
     clearTimeout(timer);
@@ -68,7 +78,7 @@ export function createEditor({ onStatus = () => {} }: EditorOptions = {}): Compo
   async function persist(): Promise<void> {
     store.set({ saving: true });
     try {
-      await saveNote(store.state.text);
+      await saveNote(store.state.html);
       onStatus("Saved");
     } catch (error) {
       onStatus("Save failed - will retry on next change");
@@ -85,7 +95,7 @@ export function createEditor({ onStatus = () => {} }: EditorOptions = {}): Compo
   void (async () => {
     try {
       const note = await loadNote();
-      store.set({ text: note.text, loaded: true });
+      store.set({ html: note.text, loaded: true });
       onStatus("Ready");
     } catch (error) {
       store.set({ loaded: true });
@@ -98,6 +108,7 @@ export function createEditor({ onStatus = () => {} }: EditorOptions = {}): Compo
     element: root,
     destroy() {
       clearTimeout(timer);
+      toolbar.destroy?.();
       unsubscribe();
     },
   };
@@ -118,8 +129,6 @@ function renderStatus(
 }
 
 function iconFor(saving: boolean, loaded: boolean): Node {
-  // lucide ships icon nodes plus `createElement`; the PascalCase names in
-  // `icons` are the canonical ones.
   const node = createElement(!loaded || saving ? icons.LoaderCircle : icons.Check);
   node.classList.add("status-svg");
   if (!loaded || saving) node.classList.add("status-svg--spin");
@@ -128,14 +137,12 @@ function iconFor(saving: boolean, loaded: boolean): Node {
 
 const EDITOR_CLASS = [
   "writable-space",
-  "w-full",
-  "h-full",
+  "flex-1",
+  "min-h-0",
+  "overflow-y-auto",
   "outline-none",
-  "resize-none",
   "px-10",
   "py-8",
-  "text-xl",
-  "leading-relaxed",
   "whitespace-pre-wrap",
   "caret-[#b8926a]",
 ].join(" ");

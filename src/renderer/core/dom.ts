@@ -7,9 +7,18 @@
  *
  * `h(tag, props, ...children)` - props may include attributes, `dataset`,
  * and `on: <event>` handlers, so listeners are scoped to creation and can
- * never leak across re-renders.
+ * never leak across re-renders. Children may also be components, whose
+ * elements are appended directly.
  */
-export type Child = Node | string | null | undefined | false;
+import type { Component } from "./component.ts";
+
+export type Child =
+  | Node
+  | string
+  | null
+  | undefined
+  | false
+  | Component<HTMLElement>;
 
 export interface ElementProps {
   id?: string;
@@ -52,6 +61,10 @@ function applyProps(element: HTMLElement, props: ElementProps): void {
 
 function appendChild(parent: HTMLElement, child: Child): void {
   if (child === null || child === undefined || child === false) return;
+  if (typeof child === "object" && "element" in child) {
+    parent.append(child.element);
+    return;
+  }
   parent.append(child instanceof Node ? child : document.createTextNode(child));
 }
 
