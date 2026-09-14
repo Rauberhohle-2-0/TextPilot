@@ -1,12 +1,15 @@
 /**
- * The Hono application, assembled from route modules.
+ * The Hono application, assembled from feature modules.
  *
  * Free of transport concerns: no port, no process lifetime. Anything that
  * has a `fetch` can serve it. A logger is injected instead of imported, so
  * tests get a silent logger and the entry points decide where output goes.
+ * Server-side features live under `features/` and mount here - one line
+ * each.
  */
 import { Hono } from "hono";
 import type { Logger } from "../logging/logger.ts";
+import { createNoteRoutes, createNoteStore } from "./features/notes/index.ts";
 import { requestLogger } from "./middleware/request-logger.ts";
 import { apiRoutes } from "./routes/api.ts";
 import { greetingRoutes } from "./routes/greeting.ts";
@@ -26,6 +29,7 @@ export function createApp({ logger }: CreateAppOptions = {}): Hono {
 
   app.route("/", greetingRoutes);
   app.route("/api", apiRoutes);
+  app.route("/api", createNoteRoutes({ store: createNoteStore(), logger }));
 
   return app;
 }

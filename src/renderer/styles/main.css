@@ -1,0 +1,78 @@
+/* Tailwind (v4, via the Vite plugin) plus the app's own layer. */
+@import "tailwindcss";
+
+/*
+ * The serif of a native Apple document app: New York on Apple platforms,
+ * with Palatino and Charter as graceful fallbacks elsewhere. Sized and
+ * spaced like TextEdit's default rather than a browser's.
+ */
+@theme {
+  --font-serif-apple: ui-serif, "New York", "Palatino", "Charter", serif;
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+    margin: 0;
+    background-color: #1c1c1e;
+    color: #e8e6e3;
+    font-family: var(--font-serif-apple);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* The window is one writable space: no document scrollbars, the editor
+     fills everything and scrolls only if the text outgrows the window. */
+  body {
+    overflow: hidden;
+  }
+}
+
+@layer components {
+  .status-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: flex-end;
+    padding: 0.5rem 1rem;
+    font-family: ui-sans-serif, -apple-system, system-ui, sans-serif;
+    font-size: 0.75rem;
+    color: #8e8e93;
+    background: linear-gradient(to top, rgb(28 28 30 / 0.9), transparent);
+    pointer-events: none;
+  }
+
+  .status-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .status-svg {
+    width: 0.85rem;
+    height: 0.85rem;
+  }
+
+  .status-svg--spin {
+    animation: status-spin 1.2s linear infinite;
+  }
+
+  @keyframes status-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* The placeholder for the empty writable space. */
+  .writable-space:empty::before {
+    content: attr(data-placeholder);
+    color: #636366;
+    pointer-events: none;
+  }
+
+  .writable-space:focus {
+    outline: none;
+  }
+}
