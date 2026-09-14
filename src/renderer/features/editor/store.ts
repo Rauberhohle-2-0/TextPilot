@@ -6,8 +6,8 @@
  * and this file has no DOM in it so it is trivially testable.
  */
 export interface EditorState {
-  /** The document HTML currently in the writable space. */
-  readonly html: string;
+  /** The document as Markdown - the format of record, saved to disk. */
+  readonly markdown: string;
   /** True while a save is in flight. */
   readonly saving: boolean;
   /** Set once the note has been loaded from the server. */
@@ -17,7 +17,7 @@ export interface EditorState {
 export type EditorListener = (state: EditorState) => void;
 
 export class EditorStore {
-  #state: EditorState = { html: "", saving: false, loaded: false };
+  #state: EditorState = { markdown: "", saving: false, loaded: false };
   readonly #listeners = new Set<EditorListener>();
 
   get state(): EditorState {

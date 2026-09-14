@@ -12,6 +12,7 @@
 import { createElement, icons } from "lucide";
 import type { Component } from "../../core/component.ts";
 import { h } from "../../core/dom.ts";
+import { insertMarkdown } from "./markdown-insert.ts";
 import {
   FORMAT_ACTIONS,
   STATE_COMMANDS,
@@ -24,11 +25,25 @@ import type { FormatAction } from "./formatting.ts";
 export interface ToolbarOptions {
   /** The contenteditable the formats apply to. */
   target: HTMLElement;
+  /** The markdown-source textarea; format buttons edit it in source mode. */
+  source: HTMLTextAreaElement;
   /** Fired after a format changed the document; the view autosaves. */
   onChange(): void;
+  /** Fired when the user toggles markdown-source mode. */
+  onToggleSource(): void;
+  /** True while the markdown source is on screen. */
+  isSourceMode(): boolean;
 }
 
-export function createToolbar({ target, onChange }: ToolbarOptions): Component<HTMLElement> {
+export function createToolbar({
+  target,
+  source,
+  onChange,
+  onToggleSource,
+  isSourceMode,
+}: ToolbarOptions): Component<HTMLElement> & {
+  setSourceMode(active: boolean): void;
+} {
   const buttons = new Map<string, HTMLButtonElement>();
 
   const groups = [
@@ -39,16 +54,18 @@ export function createToolbar({ target, onChange }: ToolbarOptions): Component<H
   const element = h(
     "div",
     { class: "toolbar", role: "toolbar", "aria-label": "Formatting" },
-    ...groups.map((actions, index) => {
+    ...groups.flatMap((actions, index) => {
       const group = h(
         "div",
         { class: "toolbar-group", role: "group" },
         ...actions.map((action) => buildButton(action)),
       );
       return index < groups.length - 1
-        ? [group, h("span", { class: "toolbar-separator" })] as unknown as Node
-        : group;
+        ? [group, h("span", { class: "toolbar-separator" })]
+        : [group];
     }),
+    h("div", { class: "toolbar-spacer" }),
+    buildSourceToggle(),
   );
 
   function buildButton(action: FormatAction): HTMLButtonElement {
@@ -64,6 +81,14 @@ export function createToolbar({ target, onChange }: ToolbarOptions): Component<H
     // selection before the command runs.
     button.addEventListener("mousedown", (event) => {
       event.preventDefault();
+      if (isSourceMode()) {
+        // Source mode: edit the markdown text directly. The textarea
+        // regains focus so typing continues where the edit happened.
+        insertMarkdown(source, action);
+        source.focus();
+        onChange();
+        return;
+      }
       applyFormat(action);
       onChange();
       reflect();
@@ -73,7 +98,11 @@ export function createToolbar({ target, onChange }: ToolbarOptions): Component<H
   }
 
   function isListOrInline(action: FormatAction): boolean {
-    return action.kind === "inline" || action.id.endsWith("list") ||
+    // The list ids (`bullet`, `number`) do not share a suffix, so they
+    // are named explicitly - a suffix check is how they once fell out
+    // of the toolbar silently.
+    return action.kind === "inline" ||
+      action.id === "bullet" || action.id === "number" ||
       action.id === "blockquote" || action.id === "code";
   }
 
@@ -81,7 +110,43 @@ export function createToolbar({ target, onChange }: ToolbarOptions): Component<H
     return icon.split("-").map((part) => part[0]!.toUpperCase() + part.slice(1)).join("");
   }
 
+  function buildSourceToggle(): HTMLButtonElement {
+    const button = h("button", {
+      type: "button",
+      class: "toolbar-button",
+      title: "Toggle markdown source (⌘/)",
+      "aria-label": "Toggle markdown source",
+      "aria-pressed": "false",
+    });
+    button.append(createElement(icons.FileCode));
+    button.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+      onToggleSource();
+    });
+    return button;
+  }
+
+  /**
+   * Source mode keeps the format buttons enabled - they now edit the
+   * markdown text directly. Only the reflect loop pauses (browser
+   * format state is meaningless for raw markdown), and the toggle
+   * lights up so the mode is visible at a glance.
+   */
+  function setSourceMode(active: boolean): void {
+    const toggle = element.querySelector<HTMLButtonElement>("[aria-pressed]");
+    if (toggle) {
+      toggle.setAttribute("aria-pressed", String(active));
+      toggle.classList.toggle("toolbar-button--active", active);
+    }
+    if (active) {
+      for (const button of buttons.values()) {
+        button.classList.remove("toolbar-button--active");
+      }
+    }
+  }
+
   function reflect(): void {
+    if (element.querySelector("[aria-pressed]")?.getAttribute("aria-pressed") === "true") return;
     for (const action of FORMAT_ACTIONS) {
       const button = buttons.get(action.id);
       if (!button) continue;
@@ -97,6 +162,7 @@ export function createToolbar({ target, onChange }: ToolbarOptions): Component<H
 
   return {
     element,
+    setSourceMode,
     destroy() {
       document.removeEventListener("selectionchange", reflect);
     },

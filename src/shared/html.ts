@@ -1,11 +1,12 @@
 /**
- * Server-side sanitization of document HTML.
+ * Sanitization of document HTML.
  *
- * The renderer sends HTML (a writer's formatting: headings, bold, lists,
- * links). Nothing reaches storage unsanitized - the browser can be
- * compromised, and a stored `<script>` would attack whoever loads the
- * document next. This module is the single allowlist both sides agree on;
- * the client uses the same tags only to decide which buttons are active.
+ * The renderer renders Markdown into HTML before showing it, and that
+ * HTML may carry inline tags from the document (or a compromised
+ * client's save). Nothing reaches the DOM unsanitized: this module is
+ * the single allowlist both sides agree on. The server no longer needs
+ * it - storage keeps Markdown as text - but the client runs every
+ * rendered document through it.
  */
 import sanitizeHtml from "sanitize-html";
 
@@ -17,7 +18,7 @@ import sanitizeHtml from "sanitize-html";
 export const ALLOWED_TAGS = [
   "p", "br", "hr",
   "h1", "h2", "h3",
-  "b", "strong", "i", "em", "u", "s", "mark",
+  "b", "strong", "i", "em", "u", "s", "del", "mark",
   "blockquote", "pre", "code",
   "ul", "ol", "li",
   "a",

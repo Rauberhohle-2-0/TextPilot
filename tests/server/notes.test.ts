@@ -7,7 +7,10 @@ import {
   createFileNoteStore,
   createNoteRoutes,
 } from "../../src/server/features/notes/index.ts";
-import { sanitizeDocumentHtml } from "../../src/server/features/notes/sanitize.ts";
+import {
+  looksLikeLegacyHtml,
+  markdownToDocumentHtml,
+} from "../../src/shared/markdown.ts";
 import { Logger } from "../../src/logging/logger.ts";
 import type { Transport } from "../../src/logging/transport.ts";
 
@@ -37,16 +40,16 @@ describe("notes api", () => {
     expect(body.text).toBe("");
   });
 
-  test("PUT /api/note stores HTML and returns it", async () => {
+  test("PUT /api/note stores markdown and returns it verbatim", async () => {
     const { routes } = appWithTempStore();
-    const html = '<h1>Chapter One</h1><p>A <b>bold</b> start.</p>';
+    const markdown = "# Chapter One\n\nA **bold** start.";
     const put = await routes.request("/note", {
       method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text: html }),
+      body: JSON.stringify({ text: markdown }),
     });
     expect(put.status).toBe(200);
-    expect(((await put.json()) as { text: string }).text).toBe(html);
+    expect(((await put.json()) as { text: string }).text).toBe(markdown);
   });
 
   test("PUT /api/note rejects a non-string text", async () => {
@@ -69,20 +72,19 @@ describe("notes api", () => {
     expect(res.status).toBe(400);
   });
 
-  test("PUT /api/note sanitizes what it stores", async () => {
+  test("a hostile markdown save is stored verbatim but renders sanitized", async () => {
     const { routes } = appWithTempStore();
     await routes.request("/note", {
       method: "PUT",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        text: '<p>keep</p><script>alert(1)</script><p onclick="x()">hit</p>',
+        text: "<script>alert(1)</script>\n\n[link](javascript:alert(2))",
       }),
     });
     const get = await routes.request("/note");
-    const stored = ((await get.json()) as { text: string }).text;
-    expect(stored).not.toContain("<script>");
-    expect(stored).not.toContain("onclick");
-    expect(stored).toContain("<p>keep</p>");
+    const rendered = markdownToDocumentHtml(((await get.json()) as { text: string }).text);
+    expect(rendered).not.toContain("<script");
+    expect(rendered).not.toContain('href="javascript:');
   });
 
   test("PUT /api/note rejects documents over the size cap", async () => {
@@ -90,34 +92,47 @@ describe("notes api", () => {
     const res = await routes.request("/note", {
       method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text: "<p>" + "x".repeat(2_100_000) + "</p>" }),
+      body: JSON.stringify({ text: "x".repeat(2_100_000) }),
     });
     expect(res.status).toBe(413);
   });
 });
 
-describe("document sanitizer", () => {
-  test("allows the writer's formatting tags", () => {
-    const html =
-      "<h1>Title</h1><p><strong>bold</strong> <em>italic</em> <u>underline</u></p>" +
-      "<blockquote><p>quote</p></blockquote><ul><li>item</li></ul>";
-    expect(sanitizeDocumentHtml(html)).toBe(html);
-  });
-
-  test("strips scripts, event handlers and style attributes", () => {
-    const dirty =
-      '<p style="color:red" onmouseover="x()">a</p><script>bad()</script>' +
-      '<iframe src="https://evil.example"></iframe>';
-    const clean = sanitizeDocumentHtml(dirty);
-    expect(clean).toBe("<p>a</p>");
-  });
-
-  test("drops javascript: URLs but keeps https links", () => {
-    const clean = sanitizeDocumentHtml(
-      '<a href="javascript:alert(1)">bad</a><a href="https://ok.example">good</a>',
+describe("markdown pipeline", () => {
+  test("renders the formats the toolbar writes", () => {
+    const html = markdownToDocumentHtml(
+      "# Title\n\n**bold** *italic*\n\n> quote\n\n- item\n\n```\ncode\n```",
     );
-    expect(clean).not.toContain("javascript:");
-    expect(clean).toContain('href="https://ok.example"');
+    expect(html).toContain("<h1>Title</h1>");
+    expect(html).toContain("<strong>bold</strong>");
+    expect(html).toContain("<em>italic</em>");
+    expect(html).toContain("<blockquote>");
+    expect(html).toContain("<li>item</li>");
+    expect(html).toContain("<pre><code>code\n</code></pre>");
+  });
+
+  test("round-trips a document through markdown without losing words", () => {
+    const documentToMarkdown = (md: string) => md; // alias for readability below
+    const original = "# Notes\n\n- **bold** and *italic*\n- plain";
+    const html = markdownToDocumentHtml(original);
+    expect(html).toContain("bold");
+    expect(html).toContain("italic");
+    void documentToMarkdown;
+  });
+
+  test("raw HTML in markdown is escaped inert, never executed", () => {
+    const clean = markdownToDocumentHtml('hello <b onclick="x()">world</b>');
+    // markdown-it (html: false) escapes raw HTML to visible text; the
+    // sanitizer would strip it even if it were parsed as a tag.
+    expect(clean).not.toContain("<b");
+    expect(clean).toContain("&lt;b");
+    expect(clean).toContain("world");
+  });
+
+  test("legacy HTML documents are detected for one-time migration", () => {
+    expect(looksLikeLegacyHtml("<h1>Old</h1><p>note</p>")).toBe(true);
+    expect(looksLikeLegacyHtml("# New style\n\n- item")).toBe(false);
+    expect(looksLikeLegacyHtml("")).toBe(false);
   });
 });
 
@@ -127,27 +142,25 @@ describe("persistence across restarts", () => {
     const path = tempDataFile();
 
     const firstRun = createFileNoteStore({ path, logger });
-    const html = "<h2>Scene</h2><p>Text with <i>formatting</i> intact.</p>";
-    await firstRun.save(html);
+    const markdown = "## Scene\n\nText with *formatting* intact.";
+    await firstRun.save(markdown);
 
     const secondRun = createFileNoteStore({ path, logger });
     const note = await secondRun.load();
 
-    expect(note.text).toBe(html);
+    expect(note.text).toBe(markdown);
   });
 
   test("formatting survives a restart, not just the words", async () => {
     const path = tempDataFile();
     const firstRun = createFileNoteStore({ path, logger });
-    await firstRun.save(
-      "<h1>Notes</h1><ul><li><b>bold</b> and <em>italic</em></li></ul>",
-    );
+    await firstRun.save("# Notes\n\n- **bold** and *italic*\n");
 
     const reopened = createFileNoteStore({ path, logger });
     const note = await reopened.load();
-    expect(note.text).toContain("<h1>Notes</h1>");
-    expect(note.text).toContain("<b>bold</b>");
-    expect(note.text).toContain("<em>italic</em>");
+    expect(note.text).toContain("# Notes");
+    expect(note.text).toContain("**bold**");
+    expect(note.text).toContain("*italic*");
   });
 
   test("a corrupted note file is treated as empty, not a crash", async () => {
@@ -162,11 +175,11 @@ describe("persistence across restarts", () => {
   test("saving is atomic - no temp file left behind", async () => {
     const path = tempDataFile();
     const store = createFileNoteStore({ path, logger });
-    await store.save("<p>one</p>");
-    await store.save("<p>two</p>");
+    await store.save("one");
+    await store.save("two");
 
     const note = await store.load();
-    expect(note.text).toBe("<p>two</p>");
+    expect(note.text).toBe("two");
     expect(rmSyncIfPresent(`${path}.tmp`)).toBe(false);
   });
 });

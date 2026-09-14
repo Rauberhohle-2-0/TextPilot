@@ -1,14 +1,13 @@
 /**
  * The `/api/note` routes: load and save the one writable space.
  *
- * The document is HTML - a writer's formatting travels with the text.
- * Saves are sanitized server-side before storage; loads return the
- * already-sanitized form, so the client never renders anything that did
- * not pass the allowlist.
+ * The document is Markdown - the format of record, readable by any
+ * markdown tool. It is stored as text, verbatim: the client renders it
+ * into sanitized HTML before showing anything, so a hostile payload in
+ * a saved note never reaches a DOM.
  */
 import { Hono } from "hono";
 import type { Logger } from "../../../logging/logger.ts";
-import { sanitizeDocumentHtml } from "./sanitize.ts";
 import type { NoteStore } from "./store.ts";
 
 export interface NoteRoutesOptions {
@@ -34,8 +33,7 @@ export function createNoteRoutes({ store, logger }: NoteRoutesOptions): Hono {
     if (body.text.length > MAX_DOCUMENT_BYTES) {
       return c.json({ error: "document too large" }, 413);
     }
-    const html = sanitizeDocumentHtml(body.text);
-    const note = await store.save(html);
+    const note = await store.save(body.text);
     log?.info("note saved", { bytes: note.text.length });
     return c.json(note, 200);
   });
@@ -43,5 +41,5 @@ export function createNoteRoutes({ store, logger }: NoteRoutesOptions): Hono {
   return routes;
 }
 
-/** 2 MB of HTML is far beyond any honest document. */
+/** 2 MB of Markdown is far beyond any honest document. */
 const MAX_DOCUMENT_BYTES = 2_000_000;

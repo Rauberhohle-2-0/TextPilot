@@ -15,6 +15,7 @@ import type { Component } from "./component.ts";
 export type Child =
   | Node
   | string
+  | Child[]
   | null
   | undefined
   | false
@@ -61,6 +62,10 @@ function applyProps(element: HTMLElement, props: ElementProps): void {
 
 function appendChild(parent: HTMLElement, child: Child): void {
   if (child === null || child === undefined || child === false) return;
+  if (Array.isArray(child)) {
+    for (const nested of child) appendChild(parent, nested);
+    return;
+  }
   if (typeof child === "object" && "element" in child) {
     parent.append(child.element);
     return;

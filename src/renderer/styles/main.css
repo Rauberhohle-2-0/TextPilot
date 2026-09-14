@@ -35,6 +35,7 @@
   /* The formatting toolbar: floats over the document, out of the text. */
   .toolbar {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.25rem;
     padding: 0.4rem 1rem;
@@ -47,6 +48,11 @@
     display: flex;
     align-items: center;
     gap: 0.15rem;
+  }
+
+  /* Pushes the source-mode toggle to the toolbar's right edge. */
+  .toolbar-spacer {
+    flex: 1;
   }
 
   .toolbar-separator {
@@ -130,6 +136,30 @@
     outline: none;
   }
 
+  /* The markdown-source surface: same geometry as the writable space,
+     but a plain textarea - no rich formatting, raw markdown only. */
+  #source-space {
+    resize: none;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font-family: var(--font-writing-mono);
+    font-size: var(--font-writing-size);
+    line-height: 1.75;
+    white-space: pre;
+  }
+
+  #source-space:focus {
+    outline: none;
+  }
+
+  /* The hidden attribute must beat any display utility on the swapped
+     surfaces; the editor toggles them with `hidden`. */
+  #writable-space[hidden],
+  #source-space[hidden] {
+    display: none;
+  }
+
   /* Typography of the saved document. Mono throughout, sized from the
      single writing-size variable so headings scale as a family. */
   .writable-space h1 {
@@ -189,10 +219,17 @@
     white-space: pre-wrap;
   }
 
+  /* Tailwind's preflight strips list markers globally; the document
+     is prose, so bullets and numbering are part of its meaning. */
   .writable-space ul,
   .writable-space ol {
     margin: 0.6rem 0 1rem;
     padding-left: 1.6rem;
+    list-style: revert;
+  }
+
+  .writable-space li::marker {
+    color: #a8a8ad;
   }
 
   .writable-space li {

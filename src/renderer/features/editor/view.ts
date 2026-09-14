@@ -1,16 +1,23 @@
 /**
  * The writable space: the whole window is one rich-text document.
  *
- * A contenteditable surface over `EditorStore`. The document is HTML -
- * headings, emphasis, lists survive save and load - and the toolbar
- * writes formats straight into it via `execCommand`. Saves are debounced:
- * one request per typing pause, not one per keystroke.
+ * A contenteditable surface over `EditorStore`. The editing surface is
+ * HTML - headings, emphasis, lists while you work - but the document of
+ * record is Markdown: saves convert HTML→Markdown, loads render
+ * Markdown→HTML and sanitize it, so any markdown reader can consume
+ * what this app writes. Markdown input rules let the syntax itself
+ * apply formats as it is typed (`## `, `- `, `**bold**`, `~~strike~~`).
+ *
+ * Saves are debounced: one request per typing pause, not one per
+ * keystroke.
  */
 import { createElement, icons } from "lucide";
 import type { Component } from "../../core/component.ts";
 import { h } from "../../core/dom.ts";
+import { documentToMarkdown, markdownToDocumentHtml, looksLikeLegacyHtml } from "../../../shared/markdown.ts";
 import { loadNote, saveNote } from "./api.ts";
 import { createToolbar } from "./toolbar.ts";
+import { installInputRules } from "./input-rules.ts";
 import { EditorStore } from "./store.ts";
 
 const SAVE_DEBOUNCE_MS = 600;
@@ -32,13 +39,47 @@ export function createEditor({ onStatus = () => {} }: EditorOptions = {}): Compo
     "aria-label": "Document",
   });
 
+  /** Raw-markdown editing surface; swapped in for the rich one. */
+  const source = h("textarea", {
+    id: "source-space",
+    class: EDITOR_CLASS,
+    spellcheck: false,
+    placeholder: "# Markdown source…",
+    "aria-label": "Markdown source",
+  });
+  source.hidden = true;
+
+  // True while a store update originated from this surface. Markdown
+  // is a lossy view of the HTML being edited (b→strong, spacing), so
+  // echoing a local edit back into innerHTML would rewrite the DOM
+  // under the caret; only a genuinely new document re-renders.
+  let editingLocally = false;
+  /** The markdown the surface currently displays. */
+  let renderedMarkdown = "";
+
+  function commitLocalEdit(): void {
+    editingLocally = true;
+    try {
+      // The active surface is authoritative: in source mode the
+      // textarea holds the markdown of record, otherwise the rich
+      // surface does and it must be converted.
+      renderedMarkdown = sourceMode ? source.value : documentToMarkdown(surface.innerHTML);
+      store.set({ markdown: renderedMarkdown });
+    } finally {
+      editingLocally = false;
+    }
+    scheduleSave();
+  }
+
   const toolbar = createToolbar({
     target: surface,
-    onChange: () => {
-      store.set({ html: surface.innerHTML });
-      scheduleSave();
-    },
+    source,
+    onChange: commitLocalEdit,
+    onToggleSource: toggleSourceMode,
+    isSourceMode: () => sourceMode,
   });
+
+  const disposeInputRules = installInputRules({ target: surface, onChange: commitLocalEdit });
 
   const statusIcon = h("span", { class: "status-icon", "aria-hidden": "true" });
   const statusText = h("span", { class: "status-text" }, "Loading…");
@@ -53,19 +94,72 @@ export function createEditor({ onStatus = () => {} }: EditorOptions = {}): Compo
     { class: "editor flex flex-col h-full w-full" },
     toolbar,
     surface,
+    source,
     statusBar,
   );
 
-  const unsubscribe = store.subscribe(({ html, saving, loaded }) => {
-    // Only overwrite the DOM when the change came from the network, not
-    // from typing - rewriting innerHTML mid-keystroke would drop the
-    // caret.
-    if (loaded && surface.innerHTML !== html) surface.innerHTML = html;
+  /**
+   * Source mode: the textarea shows the markdown of record, the rich
+   * surface hides. Switching back re-renders the document from the
+   * (possibly hand-edited) source. One way street per toggle: while in
+   * source mode the store's markdown is authoritative and the surface
+   * is not synced.
+   */
+  let sourceMode = false;
+
+  function toggleSourceMode(): void {
+    sourceMode = !sourceMode;
+    if (sourceMode) {
+      source.value = store.state.markdown;
+      surface.hidden = true;
+      source.hidden = false;
+      source.focus();
+    } else {
+      // Enter pressed in source mode left the store stale; commit the
+      // hand-edited markdown and render the rich surface from it here.
+      // Seeding `renderedMarkdown` first would make the subscriber see
+      // "no change" and skip the re-render entirely.
+      renderedMarkdown = source.value;
+      surface.innerHTML = markdownToDocumentHtml(renderedMarkdown);
+      store.set({ markdown: renderedMarkdown });
+      surface.hidden = false;
+      source.hidden = true;
+      surface.focus();
+      scheduleSave();
+    }
+    toolbar.setSourceMode(sourceMode);
+  }
+
+  // ⌘/ (Ctrl+/ elsewhere) toggles source mode from anywhere in the
+  // document, the same muscle memory as toggling a code viewer.
+  function onKeyDown(event: KeyboardEvent): void {
+    if ((event.metaKey || event.ctrlKey) && event.key === "/") {
+      event.preventDefault();
+      toggleSourceMode();
+    }
+  }
+  root.addEventListener("keydown", onKeyDown);
+
+  const unsubscribe = store.subscribe(({ markdown, saving, loaded }) => {
+    // Re-render only when the document itself changed - not when the
+    // `saving` flag toggles. Rewriting innerHTML while the save status
+    // flickers would drop the caret mid-sentence and restyle the DOM
+    // (p margins appearing) under the writer's hands. Never while in
+    // source mode: the textarea owns the screen there.
+    if (loaded && !editingLocally && !sourceMode && markdown !== renderedMarkdown) {
+      surface.innerHTML = markdownToDocumentHtml(markdown);
+      renderedMarkdown = markdown;
+    }
     renderStatus(statusIcon, statusText, saving, loaded);
   });
 
-  surface.addEventListener("input", () => {
-    store.set({ html: surface.innerHTML });
+  surface.addEventListener("input", commitLocalEdit);
+
+  // Source-mode edits flow through the same commit path; markdown
+  // needs no conversion, so it commits directly.
+  source.addEventListener("input", () => {
+    renderedMarkdown = source.value;
+    store.set({ markdown: renderedMarkdown });
     scheduleSave();
   });
 
@@ -78,7 +172,7 @@ export function createEditor({ onStatus = () => {} }: EditorOptions = {}): Compo
   async function persist(): Promise<void> {
     store.set({ saving: true });
     try {
-      await saveNote(store.state.html);
+      await saveNote(store.state.markdown);
       onStatus("Saved");
     } catch (error) {
       onStatus("Save failed - will retry on next change");
@@ -92,10 +186,20 @@ export function createEditor({ onStatus = () => {} }: EditorOptions = {}): Compo
     console.error("[editor]", error);
   }
 
+  // Enter must produce real paragraphs: without this the browser
+  // inserts bare <div>s, which turndown flattens into single lines and
+  // which restyle unpredictably when a document re-renders.
+  document.execCommand("defaultParagraphSeparator", false, "p");
+
   void (async () => {
     try {
       const note = await loadNote();
-      store.set({ html: note.text, loaded: true });
+      const markdown = looksLikeLegacyHtml(note.text)
+        ? documentToMarkdown(note.text) // one-time migration of pre-markdown saves
+        : note.text;
+      // Do not seed `renderedMarkdown` here: the subscriber must see a
+      // change to run the initial render of the loaded document.
+      store.set({ markdown, loaded: true });
       onStatus("Ready");
     } catch (error) {
       store.set({ loaded: true });
@@ -108,6 +212,8 @@ export function createEditor({ onStatus = () => {} }: EditorOptions = {}): Compo
     element: root,
     destroy() {
       clearTimeout(timer);
+      disposeInputRules();
+      root.removeEventListener("keydown", onKeyDown);
       toolbar.destroy?.();
       unsubscribe();
     },
@@ -135,6 +241,10 @@ function iconFor(saving: boolean, loaded: boolean): Node {
   return node;
 }
 
+// No whitespace-pre-wrap: the rendered document is real block markup
+// (p, h1, ul...), so raw newlines between tags must collapse, not show
+// as extra blank lines on top of the CSS margins. Soft breaks typed
+// with Shift+Enter are real <br> elements and still display.
 const EDITOR_CLASS = [
   "writable-space",
   "flex-1",
@@ -143,6 +253,5 @@ const EDITOR_CLASS = [
   "outline-none",
   "px-10",
   "py-8",
-  "whitespace-pre-wrap",
   "caret-[#b8926a]",
 ].join(" ");
