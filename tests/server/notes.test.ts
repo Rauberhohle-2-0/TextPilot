@@ -120,13 +120,19 @@ describe("markdown pipeline", () => {
     void documentToMarkdown;
   });
 
-  test("raw HTML in markdown is escaped inert, never executed", () => {
-    const clean = markdownToDocumentHtml('hello <b onclick="x()">world</b>');
-    // markdown-it (html: false) escapes raw HTML to visible text; the
-    // sanitizer would strip it even if it were parsed as a tag.
-    expect(clean).not.toContain("<b");
-    expect(clean).toContain("&lt;b");
-    expect(clean).toContain("world");
+  test("formats without markdown syntax render back from inline HTML", () => {
+    // Underline and highlight have no markdown form; they are stored
+    // as inline HTML and must render as formatting, not visible tags.
+    const clean = markdownToDocumentHtml("before <u>blabla</u> after");
+    expect(clean).toContain("<u>blabla</u>");
+    expect(clean).not.toContain("&lt;");
+  });
+
+  test("hostile inline HTML in markdown is stripped, not rendered", () => {
+    const clean = markdownToDocumentHtml('x <script>alert(1)</script><b onclick="evil()">t</b> y');
+    expect(clean).not.toContain("<script");
+    expect(clean).not.toContain("onclick");
+    expect(clean).toContain("t");
   });
 
   test("legacy HTML documents are detected for one-time migration", () => {

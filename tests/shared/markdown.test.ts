@@ -56,9 +56,12 @@ describe("markdown to html", () => {
     expect(html).toContain("second line");
   });
 
-  test("raw HTML in markdown is stripped, not executed", () => {
-    const html = markdownToDocumentHtml("hello <script>bad()</script> world");
+  test("hostile raw HTML is stripped, benign formatting renders", () => {
+    const html = markdownToDocumentHtml(
+      'hello <script>bad()</script> <u>underline</u> world',
+    );
     expect(html).not.toContain("<script>");
+    expect(html).toContain("<u>underline</u>");
     expect(html).toContain("world");
   });
 

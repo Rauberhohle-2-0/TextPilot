@@ -46,8 +46,13 @@ export function createToolbar({
 } {
   const buttons = new Map<string, HTMLButtonElement>();
 
+  // Group 1: block text formats (headings, body). Group 2: everything
+  // else - quote, code block, inline emphasis and lists. The split is
+  // by id, not by shape: a filter on "has a value" would catch the
+  // blockquote/pre commands too and render them twice.
+  const BLOCK_GROUP_IDS = new Set(["h1", "h2", "h3", "paragraph"]);
   const groups = [
-    FORMAT_ACTIONS.filter((action) => action.value !== undefined || action.id === "paragraph"),
+    FORMAT_ACTIONS.filter((action) => BLOCK_GROUP_IDS.has(action.id)),
     FORMAT_ACTIONS.filter((action) => isListOrInline(action)),
   ];
 

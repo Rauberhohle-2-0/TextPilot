@@ -51,7 +51,13 @@ turndown.addRule("strikethrough", {
 // new line on screen. Without it, two typed lines silently merge into
 // one paragraph the moment the rich view re-renders - the classic
 // markdown surprise, and here it reads as a round-trip bug.
-const markdownIt = new MarkdownIt({ html: false, linkify: false, breaks: true });
+//
+// `html: true` matters for the same fidelity: formats without markdown
+// syntax (underline, highlight) are stored as inline HTML, and must
+// render back as formatting - not as visible `<u>` text. Raw HTML is
+// still safe: every load passes through the sanitizer allowlist right
+// after this, which strips scripts, handlers and unknown tags.
+const markdownIt = new MarkdownIt({ html: true, linkify: false, breaks: true });
 
 /** Editing-surface HTML → the Markdown stored on disk. */
 export function documentToMarkdown(html: string): string {
