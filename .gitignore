@@ -117,3 +117,6 @@ dist
 
 # Run logs (overwritten on every run)
 logs/
+
+# User data (the last-open document)
+data/

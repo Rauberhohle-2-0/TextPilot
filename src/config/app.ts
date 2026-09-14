@@ -31,6 +31,11 @@ export const appConfig = {
     /** Overwritten at the start of every run. */
     file: join(projectRoot, "logs", "app.log"),
   },
+
+  data: {
+    /** The user's document; survives closing and reopening the app. */
+    note: join(projectRoot, "data", "note.json"),
+  },
 };
 
 export type LogLevel = "debug" | "info" | "warn" | "error";

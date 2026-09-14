@@ -9,7 +9,8 @@
  */
 import { Hono } from "hono";
 import type { Logger } from "../logging/logger.ts";
-import { createNoteRoutes, createNoteStore } from "./features/notes/index.ts";
+import { appConfig } from "../config/app.ts";
+import { createNoteRoutes, createFileNoteStore } from "./features/notes/index.ts";
 import { requestLogger } from "./middleware/request-logger.ts";
 import { apiRoutes } from "./routes/api.ts";
 import { greetingRoutes } from "./routes/greeting.ts";
@@ -29,7 +30,13 @@ export function createApp({ logger }: CreateAppOptions = {}): Hono {
 
   app.route("/", greetingRoutes);
   app.route("/api", apiRoutes);
-  app.route("/api", createNoteRoutes({ store: createNoteStore(), logger }));
+  app.route(
+    "/api",
+    createNoteRoutes({
+      store: createFileNoteStore({ path: appConfig.data.note, logger }),
+      logger,
+    }),
+  );
 
   return app;
 }
