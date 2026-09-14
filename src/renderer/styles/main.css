@@ -2,12 +2,15 @@
 @import "tailwindcss";
 
 /*
- * The serif of a native Apple document app: New York on Apple platforms,
- * with Palatino and Charter as graceful fallbacks elsewhere. Sized and
- * spaced like TextEdit's default rather than a browser's.
+ * The writing face: a monospaced font, for drafts that read like they
+ * were typed. SF Mono on Apple platforms with Musica, Fira Code and the
+ * generic monospace as fallbacks. The status bar stays sans-serif so it
+ * reads as interface, not document.
  */
 @theme {
-  --font-serif-apple: ui-serif, "New York", "Palatino", "Charter", serif;
+  --font-writing-mono: ui-monospace, "SF Mono", "Musica", "Fira Code", Menlo,
+    monospace;
+  --font-writing-size: 1.05rem;
 }
 
 @layer base {
@@ -17,7 +20,7 @@
     margin: 0;
     background-color: #1c1c1e;
     color: #e8e6e3;
-    font-family: var(--font-serif-apple);
+    font-family: var(--font-writing-mono);
     -webkit-font-smoothing: antialiased;
   }
 
@@ -127,13 +130,13 @@
     outline: none;
   }
 
-  /* Typography of the saved document. Same serif as the body, sized like
-     a manuscript: generous heading steps, comfortable list rhythm. */
+  /* Typography of the saved document. Mono throughout, sized from the
+     single writing-size variable so headings scale as a family. */
   .writable-space h1 {
-    font-size: 2rem;
+    font-size: calc(var(--font-writing-size) * 1.7);
     font-weight: 700;
     margin: 1.6rem 0 0.8rem;
-    line-height: 1.2;
+    line-height: 1.25;
   }
 
   .writable-space h1:first-child,
@@ -144,17 +147,17 @@
   }
 
   .writable-space h2 {
-    font-size: 1.6rem;
+    font-size: calc(var(--font-writing-size) * 1.4);
     font-weight: 700;
     margin: 1.4rem 0 0.7rem;
-    line-height: 1.25;
+    line-height: 1.3;
   }
 
   .writable-space h3 {
-    font-size: 1.3rem;
+    font-size: calc(var(--font-writing-size) * 1.18);
     font-weight: 600;
     margin: 1.2rem 0 0.6rem;
-    line-height: 1.3;
+    line-height: 1.35;
   }
 
   .writable-space p {
@@ -169,12 +172,19 @@
     font-style: italic;
   }
 
+  /* The writable space itself: the writing face, line-height tuned for
+     long stretches of mono text. */
+  .writable-space {
+    font-size: var(--font-writing-size);
+    line-height: 1.75;
+  }
+
   .writable-space pre {
     margin: 1rem 0;
     padding: 0.9rem 1.1rem;
     background: rgb(0 0 0 / 0.35);
     border-radius: 8px;
-    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-family: var(--font-writing-mono);
     font-size: 0.95em;
     white-space: pre-wrap;
   }
