@@ -1,0 +1,24 @@
+{
+  "name": "textpilot",
+  "module": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun run src/dev.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "expo": "57.0.22",
+    "hono": "4.13.7"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.2",
+    "@vantail/cli": "0.1.21",
+    "@vantail/runtime": "0.1.21",
+    "typescript": "7.0.2"
+  },
+  "peerDependencies": {
+    "typescript": "^7"
+  }
+}
