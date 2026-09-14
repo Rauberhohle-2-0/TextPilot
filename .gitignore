@@ -114,3 +114,6 @@ dist
 
 # Vantail
 .vantail/
+
+# Run logs (overwritten on every run)
+logs/
