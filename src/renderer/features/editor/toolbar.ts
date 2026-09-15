@@ -69,7 +69,7 @@ export function createToolbar({
         ? [group, h("span", { class: "toolbar-separator" })]
         : [group];
     }),
-    h("div", { class: "toolbar-spacer" }),
+    h("span", { class: "toolbar-separator" }),
     buildSourceToggle(),
   );
 

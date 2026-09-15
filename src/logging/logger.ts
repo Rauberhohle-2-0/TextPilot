@@ -31,6 +31,16 @@ export interface LoggerOptions {
   transports: Transport[];
   /** Prefix for every entry this logger emits. */
   scope?: string;
+  /**
+   * Called when a transport throws. Defaults to silent isolation so a
+   * failing transport neither breaks the others nor spams the console.
+   * Wire `console.error` here from the entry point if you want visibility.
+   */
+  onTransportError?: (
+    transport: Transport,
+    error: unknown,
+    entry: LogEntry,
+  ) => void;
 }
 
 const LEVEL_WEIGHT: Record<LogLevel, number> = {
@@ -44,11 +54,13 @@ export class Logger {
   readonly #transports: Transport[];
   readonly #threshold: number;
   readonly #scope?: string;
+  readonly #onTransportError?: LoggerOptions["onTransportError"];
 
   constructor(options: LoggerOptions) {
     this.#threshold = LEVEL_WEIGHT[options.level ?? "info"];
     this.#transports = options.transports;
     this.#scope = options.scope;
+    this.#onTransportError = options.onTransportError;
   }
 
   /** A logger that prefixes its entries with `scope` and inherits the rest. */
@@ -59,6 +71,7 @@ export class Logger {
       ),
       transports: this.#transports,
       scope: this.#scope ? `${this.#scope}:${scope}` : scope,
+      onTransportError: this.#onTransportError,
     });
   }
 
@@ -103,8 +116,8 @@ export class Logger {
       try {
         transport.write(entry);
       } catch (error) {
-        // Last resort: a failing file transport must still reach the console.
-        console.error(`[${transport.name}] transport failed:`, error);
+        // Isolate the failure so the remaining transports still deliver.
+        this.#onTransportError?.(transport, error, entry);
       }
     }
   }

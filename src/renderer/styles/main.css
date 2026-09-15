@@ -32,27 +32,39 @@
 }
 
 @layer components {
-  /* The formatting toolbar: floats over the document, out of the text. */
+  /* The formatting toolbar: a rounded floating pill, bottom-centered
+     over the document and out of the text flow. */
   .toolbar {
+    position: absolute;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 20;
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
     gap: 0.25rem;
-    padding: 0.4rem 1rem;
-    background: rgb(28 28 30 / 0.92);
-    border-bottom: 1px solid rgb(255 255 255 / 0.06);
-    backdrop-filter: blur(8px);
+    max-width: calc(100% - 2rem);
+    padding: 0.45rem 0.7rem;
+    background: rgb(32 32 34 / 0.92);
+    border: 1px solid rgb(255 255 255 / 0.1);
+    border-radius: 1rem;
+    box-shadow:
+      0 12px 32px rgb(0 0 0 / 0.45),
+      0 2px 8px rgb(0 0 0 / 0.3);
+    backdrop-filter: blur(12px);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .toolbar::-webkit-scrollbar {
+    display: none;
   }
 
   .toolbar-group {
     display: flex;
     align-items: center;
     gap: 0.15rem;
-  }
-
-  /* Pushes the source-mode toggle to the toolbar's right edge. */
-  .toolbar-spacer {
-    flex: 1;
+    flex-shrink: 0;
   }
 
   .toolbar-separator {

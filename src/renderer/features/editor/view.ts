@@ -91,10 +91,10 @@ export function createEditor({ onStatus = () => {} }: EditorOptions = {}): Compo
 
   const root = h(
     "div",
-    { class: "editor flex flex-col h-full w-full" },
-    toolbar,
+    { class: "editor relative flex flex-col h-full w-full" },
     surface,
     source,
+    toolbar,
     statusBar,
   );
 
@@ -245,6 +245,7 @@ function iconFor(saving: boolean, loaded: boolean): Node {
 // (p, h1, ul...), so raw newlines between tags must collapse, not show
 // as extra blank lines on top of the CSS margins. Soft breaks typed
 // with Shift+Enter are real <br> elements and still display.
+// Extra bottom padding keeps the last lines clear of the floating toolbar.
 const EDITOR_CLASS = [
   "writable-space",
   "flex-1",
@@ -252,6 +253,7 @@ const EDITOR_CLASS = [
   "overflow-y-auto",
   "outline-none",
   "px-10",
-  "py-8",
+  "pt-8",
+  "pb-32",
   "caret-[#b8926a]",
 ].join(" ");
