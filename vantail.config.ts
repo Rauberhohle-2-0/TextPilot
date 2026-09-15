@@ -13,15 +13,13 @@ export default defineConfig({
     minWidth: 1280,
     minHeight: 800,
     backgroundColor: '#0b0d12',
-    // Let the page draw its own title bar: the window content reaches the top
-    // edge (titleBarStyle: "hidden") with room reserved for a bar about the
-    // height of the system's own. The platform's buttons stay (macOS traffic
-    // lights); the renderer drags the bar and centres them in it.
+    // Native chrome: the page runs to the top edge (titleBarStyle: "hidden")
+    // and macOS keeps drawing its own traffic lights - no custom buttons.
+    // (Rounded corners via `borderRadius` need `decorations: false`, which
+    // removes the frame and the lights with it, so they are off while the
+    // native buttons are back.)
     titleBarStyle: 'hidden',
     titleBarHeight: 36,
-    // Add Corner Radius to the App. Need to create my own window decorations.
-    decorations: false,
-    borderRadius: 36,
   },
   permissions: {
     network: {
