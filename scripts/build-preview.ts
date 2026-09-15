@@ -18,9 +18,17 @@ const css = readFileSync(`dist/renderer/assets/${asset("css")}`, "utf8");
 const script = `<script type="module">
 window.fetch = (input, init) => {
   const url = typeof input === "string" ? input : input.url;
-  if (url.endsWith("/api/note")) {
-    const body = { text: "# Welcome\\n\\nThis is **markdown** with *formatting*.\\n\\n- one\\n- two", updatedAt: new Date().toISOString() };
-    if (init?.method === "PUT") return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
+  if (url.endsWith("/api/documents")) {
+    if (init?.method === "POST") {
+      const created = { id: "preview-" + Date.now(), text: "", title: "Untitled", updatedAt: new Date().toISOString() };
+      return Promise.resolve(new Response(JSON.stringify(created), { status: 201 }));
+    }
+    const body = { documents: [{ id: "preview-1", title: "Welcome", updatedAt: new Date().toISOString() }] };
+    return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
+  }
+  if (url.includes("/api/documents/")) {
+    if (init?.method === "PUT") return Promise.resolve(new Response("{}", { status: 200 }));
+    const body = { id: "preview-1", text: "# Welcome\\n\\nThis is **markdown** with *formatting*.\\n\\n- one\\n- two", title: "Welcome", updatedAt: new Date().toISOString() };
     return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
   }
   return Promise.reject(new Error("offline preview: " + url));

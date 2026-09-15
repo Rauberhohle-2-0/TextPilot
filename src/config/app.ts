@@ -35,6 +35,8 @@ export const appConfig = {
   data: {
     /** The user's document; survives closing and reopening the app. */
     note: join(projectRoot, "data", "note.json"),
+    /** One JSON file per document; the sidebar lists these. */
+    documents: join(projectRoot, "data", "documents"),
   },
 };
 

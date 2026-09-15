@@ -15,7 +15,7 @@ import { createElement, icons } from "lucide";
 import type { Component } from "../../core/component.ts";
 import { h } from "../../core/dom.ts";
 import { documentToMarkdown, markdownToDocumentHtml, looksLikeLegacyHtml } from "../../../shared/markdown.ts";
-import { loadNote, saveNote } from "./api.ts";
+import { loadDocument, resolveActiveDocument, saveDocument } from "./api.ts";
 import { createToolbar } from "./toolbar.ts";
 import { installInputRules } from "./input-rules.ts";
 import { EditorStore } from "./store.ts";
@@ -27,7 +27,10 @@ export interface EditorOptions {
   onStatus?(status: string): void;
 }
 
-export function createEditor({ onStatus = () => {} }: EditorOptions = {}): Component<HTMLDivElement> {
+export function createEditor({ onStatus = () => {} }: EditorOptions = {}): Component<HTMLDivElement> & {
+  /** Open a document by id; the save path follows the open one. */
+  openDocument(id: string): Promise<void>;
+} {
   const store = new EditorStore();
 
   const surface = h("div", {
@@ -170,9 +173,11 @@ export function createEditor({ onStatus = () => {} }: EditorOptions = {}): Compo
   }
 
   async function persist(): Promise<void> {
+    const id = store.state.documentId;
+    if (id === null) return;
     store.set({ saving: true });
     try {
-      await saveNote(store.state.markdown);
+      await saveDocument(id, store.state.markdown);
       onStatus("Saved");
     } catch (error) {
       onStatus("Save failed - will retry on next change");
@@ -191,15 +196,43 @@ export function createEditor({ onStatus = () => {} }: EditorOptions = {}): Compo
   // which restyle unpredictably when a document re-renders.
   document.execCommand("defaultParagraphSeparator", false, "p");
 
+  /** Show one document in the surface, dropping any pending save of the previous one. */
+  async function openDocument(id: string): Promise<void> {
+    clearTimeout(timer);
+    try {
+      const document = await loadDocument(id);
+      const markdown = looksLikeLegacyHtml(document.text)
+        ? documentToMarkdown(document.text)
+        : document.text;
+      renderedMarkdown = ""; // force the subscriber to re-render
+      editingLocally = true;
+      try {
+        store.set({ markdown, documentId: id, loaded: true });
+      } finally {
+        editingLocally = false;
+      }
+      if (sourceMode) {
+        source.value = markdown;
+      } else {
+        surface.innerHTML = markdownToDocumentHtml(markdown);
+        renderedMarkdown = markdown;
+      }
+      onStatus("Ready");
+    } catch (error) {
+      onStatus("Could not open that document");
+      report(error);
+    }
+  }
+
   void (async () => {
     try {
-      const note = await loadNote();
-      const markdown = looksLikeLegacyHtml(note.text)
-        ? documentToMarkdown(note.text) // one-time migration of pre-markdown saves
-        : note.text;
+      const document = await resolveActiveDocument();
+      const markdown = looksLikeLegacyHtml(document.text)
+        ? documentToMarkdown(document.text) // one-time migration of pre-markdown saves
+        : document.text;
       // Do not seed `renderedMarkdown` here: the subscriber must see a
       // change to run the initial render of the loaded document.
-      store.set({ markdown, loaded: true });
+      store.set({ markdown, documentId: document.id, loaded: true });
       onStatus("Ready");
     } catch (error) {
       store.set({ loaded: true });
@@ -210,6 +243,7 @@ export function createEditor({ onStatus = () => {} }: EditorOptions = {}): Compo
 
   return {
     element: root,
+    openDocument,
     destroy() {
       clearTimeout(timer);
       disposeInputRules();
@@ -246,6 +280,8 @@ function iconFor(saving: boolean, loaded: boolean): Node {
 // as extra blank lines on top of the CSS margins. Soft breaks typed
 // with Shift+Enter are real <br> elements and still display.
 // Extra bottom padding keeps the last lines clear of the floating toolbar.
+// Top padding stays small: the title-bar spacer above already puts 36px
+// between the window edge and the text.
 const EDITOR_CLASS = [
   "writable-space",
   "flex-1",
@@ -253,7 +289,7 @@ const EDITOR_CLASS = [
   "overflow-y-auto",
   "outline-none",
   "px-10",
-  "pt-8",
+  "pt-4",
   "pb-32",
   "caret-[#b8926a]",
 ].join(" ");

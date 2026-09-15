@@ -32,6 +32,157 @@
 }
 
 @layer components {
+  /* Reserved strip for the native title bar. Sized from the room the
+     runtime reports - never hardcoded - so the strip is exactly the band
+     the runtime drags the window from and maximises on double-click.
+     Empty and non-interactive on purpose: anything clickable or editable
+     here would make the runtime hand the press back to the page instead. */
+  .titlebar-spacer {
+    flex: none;
+    height: var(--vantail-titlebar-height, 36px);
+    padding-left: var(--vantail-titlebar-inset-left, 0px);
+    padding-right: var(--vantail-titlebar-inset-right, 0px);
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* The sidebar: the Finder-style left rail. Slightly darker than the
+     editor surface so the document reads as the lit part of the window,
+     with the same accent the toolbar uses for selection. */
+  .sidebar {
+    flex: none;
+    width: 13.5rem;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    /* The rail is the full window height - the traffic lights float
+       over its top band - so the title bar and the sidebar blend into
+       one surface instead of stacking as two strips. */
+    padding: 0 0.6rem 1rem;
+    background: rgb(24 24 26);
+    border-right: 1px solid rgb(255 255 255 / 0.08);
+    font-family: ui-sans-serif, -apple-system, system-ui, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* The band the traffic lights float over: fixed height, non-scrolling
+     (the section below scrolls), and empty so the runtime gets the
+     press for window dragging - same contract as the titlebar-spacer. */
+  .sidebar-drag-band {
+    flex: none;
+    height: calc(var(--vantail-titlebar-height, 36px) + 0.4rem);
+    margin: 0 -0.6rem; /* reach across the rail's side padding */
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .sidebar-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.35rem 0.55rem 0.25rem;
+  }
+
+  .sidebar-header-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #8e8e93;
+    letter-spacing: 0.01em;
+  }
+
+  /* The new-document button: a quiet row under the header, in the
+     accent color, like Finder's toolbar actions. */
+  .sidebar-new-button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 0.25rem 0.35rem;
+    padding: 0.3rem 0.4rem;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: #d8b48c;
+    font-size: 0.8rem;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .sidebar-new-button:hover {
+    background: rgb(255 255 255 / 0.06);
+  }
+
+  .sidebar-new-button:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .sidebar-new-button svg {
+    width: 0.9rem;
+    height: 0.9rem;
+    flex: none;
+  }
+
+  .sidebar-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .sidebar-row {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    width: 100%;
+    padding: 0.35rem 0.5rem;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: #e8e6e3;
+    font-size: 0.82rem;
+    line-height: 1.3;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .sidebar-row:hover {
+    background: rgb(255 255 255 / 0.06);
+  }
+
+  /* The selected row: the same warm accent the active toolbar button
+     uses, so "where am I" reads in one color across the window. */
+  .sidebar-row--selected,
+  .sidebar-row--selected:hover {
+    background: rgb(184 146 106 / 0.22);
+    color: #d8b48c;
+  }
+
+  .sidebar-row--selected .sidebar-icon {
+    color: #d8b48c;
+  }
+
+  .sidebar-icon {
+    width: 0.95rem;
+    height: 0.95rem;
+    flex: none;
+    color: #a8a8ad;
+  }
+
+  .sidebar-row-title {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
   /* The formatting toolbar: a rounded floating pill, bottom-centered
      over the document and out of the text flow. */
   .toolbar {
@@ -104,7 +255,9 @@
   .status-bar {
     position: fixed;
     bottom: 0;
-    left: 0;
+    /* The sidebar runs the full window height; keep the status line
+       over the editor column, not underneath the rail. */
+    left: 13.5rem;
     right: 0;
     display: flex;
     justify-content: flex-end;

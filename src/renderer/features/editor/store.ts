@@ -8,16 +8,18 @@
 export interface EditorState {
   /** The document as Markdown - the format of record, saved to disk. */
   readonly markdown: string;
+  /** Which document is open; null only before the first load. */
+  readonly documentId: string | null;
   /** True while a save is in flight. */
   readonly saving: boolean;
-  /** Set once the note has been loaded from the server. */
+  /** Set once the document has been loaded from the server. */
   readonly loaded: boolean;
 }
 
 export type EditorListener = (state: EditorState) => void;
 
 export class EditorStore {
-  #state: EditorState = { markdown: "", saving: false, loaded: false };
+  #state: EditorState = { markdown: "", documentId: null, saving: false, loaded: false };
   readonly #listeners = new Set<EditorListener>();
 
   get state(): EditorState {

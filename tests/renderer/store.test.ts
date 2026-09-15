@@ -4,7 +4,7 @@ import { EditorStore } from "../../src/renderer/features/editor/store.ts";
 describe("editor store", () => {
   test("starts empty and unloaded", () => {
     const store = new EditorStore();
-    expect(store.state).toEqual({ markdown: "", saving: false, loaded: false });
+    expect(store.state).toEqual({ markdown: "", documentId: null, saving: false, loaded: false });
   });
 
   test("notifies subscribers of patches and on subscribe", () => {
@@ -24,6 +24,6 @@ describe("editor store", () => {
     const store = new EditorStore();
     store.set({ markdown: "kept" });
     store.set({ saving: true });
-    expect(store.state).toEqual({ markdown: "kept", saving: true, loaded: false });
+    expect(store.state).toEqual({ markdown: "kept", documentId: null, saving: true, loaded: false });
   });
 });
